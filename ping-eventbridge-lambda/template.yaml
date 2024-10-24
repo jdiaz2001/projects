@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ping-eventbridge-lambda
+
+Resources:
+  PingEventBridgeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ping-eventbridge-lambda/  # Make sure this is the correct path to your code
+      Handler: app.lambda_handler  # Your Python handler function
+      Runtime: python3.9
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: "arn:aws:sns:us-east-1:590184067076:ServerStatusNotificationsNSM"  # SNS Topic ARN
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: "arn:aws:sns:us-east-1:590184067076:ServerStatusNotificationsNSM"  # Your SNS ARN
+
+  PingEventBridgeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: "rate(5 minutes)"  # Set the schedule to trigger every minute
+      Targets:
+        - Arn: !GetAtt PingEventBridgeFunction.Arn
+          Id: "PingEventBridgeFunction"
+
+  PingEventBridgePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref PingEventBridgeFunction
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt PingEventBridgeRule.Arn
+
+Outputs:
+  PingEventBridgeFunctionArn:
+    Description: "Ping EventBridge Lambda Function ARN"
+    Value: !GetAtt PingEventBridgeFunction.Arn
